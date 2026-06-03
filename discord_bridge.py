@@ -149,11 +149,12 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 
 @bot.event
 async def on_ready():
-    print(f'Logged in as {bot.user}')
+    print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     dev_channel = bot.get_channel(DEV_CHANNEL_ID)
     if dev_channel:
         await dev_channel.send("🤖 **Monitor Bot ONLINE**\nUse `!help` to see available commands.")
     if not monitor_loop.is_running():
+        print("DEBUG: Starting monitor loop...")
         monitor_loop.start()
 
 @bot.event
@@ -164,6 +165,7 @@ async def on_message(message):
 @tasks.loop(minutes=10) # Fixed interval for the loop itself, but it uses the config
 async def monitor_loop():
     config = load_config()
+    print(f"DEBUG: Running monitor cycle at {time.ctime()} (Checking {len(config.get('stocks', {}))} stocks and Steam: {config.get('steam_machine', {}).get('monitor')})")
     state = load_state()
     if "stock_alerts" not in state: state["stock_alerts"] = {}
     notif_channel = bot.get_channel(NOTIFICATION_CHANNEL_ID) or bot.get_channel(DEV_CHANNEL_ID)

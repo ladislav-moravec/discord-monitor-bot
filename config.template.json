@@ -1,8 +1,8 @@
 {
     "stocks": {
-        "AAPL": {"drop_threshold": 10},
-        "SOFI": {"target_high": 19, "drop_threshold": 10},
-        "GOOGL": {"drop_threshold": 10}
+        "AAPL": {"drop_threshold": 10, "raise_threshold": 10},
+        "SOFI": {"target_high": 19, "drop_threshold": 10, "raise_threshold": 10},
+        "GOOGL": {"drop_threshold": 10, "raise_threshold": 10}
     },
     "steam_machine": {
         "url": "https://store.steampowered.com/hardware/steammachine",
