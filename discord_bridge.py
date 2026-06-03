@@ -82,16 +82,34 @@ def check_steam_availability(url):
     except:
         return False
 
-def get_stock_price(symbol):
+def generate_sparkline(prices):
+    if not prices or len(prices) < 2: return ""
+    blocks = " ▂▃▄▅▆▇█"
+    min_p, max_p = min(prices), max(prices)
+    if max_p == min_p: return blocks[4] * len(prices)
+    res = []
+    for p in prices:
+        idx = int(((p - min_p) / (max_p - min_p)) * (len(blocks) - 1))
+        res.append(blocks[idx])
+    return "".join(res)
+
+def get_stock_info(symbol):
     headers = {'User-Agent': 'Mozilla/5.0'}
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=3mo&interval=1d"
     try:
         response = requests.get(url, headers=headers, timeout=15)
         data = response.json()
-        meta = data['chart']['result'][0]['meta']
-        return meta['regularMarketPrice'], meta['previousClose']
+        result = data['chart']['result'][0]
+        meta = result['meta']
+        prices = result['indicators']['quote'][0]['close']
+        # Filter out None values
+        valid_prices = [p for p in prices if p is not None]
+        # Return current, previous close, and historical prices for sparkline
+        # Taking every 5th price to keep sparkline short for Discord
+        spark_prices = valid_prices[::5] if len(valid_prices) > 20 else valid_prices
+        return meta['regularMarketPrice'], meta['previousClose'], spark_prices
     except:
-        return None, None
+        return None, None, None
 
 # Discord Bot
 intents = discord.Intents.default()
@@ -131,7 +149,7 @@ async def monitor_loop():
     
     # Stocks
     for symbol, cfg in config.get("stocks", {}).items():
-        price, prev_close = get_stock_price(symbol)
+        price, prev_close, spark_prices = get_stock_info(symbol)
         if price is not None and prev_close is not None:
             drop_percent = ((prev_close - price) / prev_close) * 100
             alert_msg = None
@@ -166,9 +184,12 @@ async def status(ctx):
         report.append(f"**Steam Machine:** {'Available 🟢' if state.get('steam_available') else 'Not available 🔴'}")
     
     for symbol in config.get("stocks", {}):
-        price, prev_close = get_stock_price(symbol)
+        price, prev_close, spark_prices = get_stock_info(symbol)
         if price is not None:
-            report.append(f"**{symbol} Stock:** ${price} (Prev: ${prev_close})")
+            pct_change = ((price - prev_close) / prev_close) * 100
+            change_str = f"{'+' if pct_change >= 0 else ''}{pct_change:.2f}%"
+            sparkline = generate_sparkline(spark_prices)
+            report.append(f"**{symbol}**: ${price} ({change_str}) {sparkline}")
         else:
             report.append(f"**{symbol} Stock:** Error fetching price")
     await ctx.send("\n".join(report))
