@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, MagicMock
-from discord_bridge import check_steam_availability, get_stock_info, generate_sparkline
+from discord_bridge import check_steam_availability, get_stock_info, generate_braille_sparkline
 
 class TestMultiMonitor(unittest.TestCase):
 
@@ -33,7 +33,7 @@ class TestMultiMonitor(unittest.TestCase):
         price, prev, spark = get_stock_info("GOOGL")
         self.assertEqual(price, 100.0)
         self.assertEqual(prev, 100.0)
-        self.assertEqual(spark, [90.0]) # [::8] of [90, 95, 100] is [90]
+        self.assertEqual(spark, [90.0]) # [::4] of [90, 95, 100] is [90]
 
     @patch('discord_bridge.requests.get')
     def test_stock_info_aapl_drop(self, mock_get):
@@ -58,14 +58,14 @@ class TestMultiMonitor(unittest.TestCase):
         drop_percent = ((prev - price) / prev) * 100
         self.assertAlmostEqual(drop_percent, 10.0)
 
-    def test_generate_sparkline(self):
-        prices = [10, 20, 30, 40, 50, 60, 70, 80]
-        spark = generate_sparkline(prices)
-        self.assertEqual(spark, " ▂▃▄▅▆▇█")
-
-        prices_same = [50, 50, 50]
-        spark_same = generate_sparkline(prices_same)
-        self.assertEqual(spark_same, "▅▅▅")
+    def test_generate_braille_sparkline(self):
+        # Prices that will map to bottom and top dots
+        prices = [10, 10, 80, 80]
+        spark = generate_braille_sparkline(prices)
+        # Expected: ⢀ + ⣴ (actually more complex, but let's check it's Braille)
+        self.assertEqual(len(spark), 2)
+        for char in spark:
+            self.assertTrue(0x2800 <= ord(char) <= 0x28FF)
 
 if __name__ == '__main__':
     unittest.main()

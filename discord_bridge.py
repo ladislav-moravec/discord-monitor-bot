@@ -82,16 +82,38 @@ def check_steam_availability(url):
     except:
         return False
 
-def generate_sparkline(prices):
+def generate_braille_sparkline(prices):
     if not prices or len(prices) < 2: return ""
-    blocks = " ▂▃▄▅▆▇█"
     min_p, max_p = min(prices), max(prices)
-    if max_p == min_p: return blocks[4] * len(prices)
-    res = []
-    for p in prices:
-        idx = int(((p - min_p) / (max_p - min_p)) * (len(blocks) - 1))
-        res.append(blocks[idx])
-    return "".join(res)
+    if max_p == min_p: max_p += 1
+
+    def get_dots_left(p):
+        val = int(((p - min_p) / (max_p - min_p)) * 4)
+        if val <= 0: return [7] # Always show at least bottom dot
+        if val == 1: return [7]
+        if val == 2: return [7, 3]
+        if val == 3: return [7, 3, 2]
+        return [7, 3, 2, 1]
+
+    def get_dots_right(p):
+        val = int(((p - min_p) / (max_p - min_p)) * 4)
+        if val <= 0: return [8]
+        if val == 1: return [8]
+        if val == 2: return [8, 6]
+        if val == 3: return [8, 6, 5]
+        return [8, 6, 5, 4]
+
+    res = ""
+    for i in range(0, len(prices), 2):
+        dots = get_dots_left(prices[i])
+        if i + 1 < len(prices):
+            dots += get_dots_right(prices[i+1])
+        base = 0x2800
+        char_code = base
+        for dot in dots:
+            char_code += (1 << (dot - 1))
+        res += chr(char_code)
+    return res
 
 def get_stock_info(symbol):
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -107,9 +129,9 @@ def get_stock_info(symbol):
         res_1y = requests.get(url_1y, headers=headers, timeout=15).json()['chart']['result'][0]
         prices = res_1y['indicators']['quote'][0]['close']
         valid_prices = [p for p in prices if p is not None]
-        # Sample 1 year of data to be ~32 characters long (approx 3cm)
-        # 252 trading days / 8 = 31.5 points
-        spark_prices = valid_prices[::8]
+        # Sample 1 year of data every 4th day. Braille characters show 2 data points
+        # each, so 63 points / 2 = ~32 characters long (approx 3cm).
+        spark_prices = valid_prices[::4]
 
         return price, prev_close, spark_prices
     except:
@@ -190,7 +212,7 @@ async def status(ctx):
         if price is not None:
             pct_change = ((price - prev_close) / prev_close) * 100
             change_str = f"{'+' if pct_change >= 0 else ''}{pct_change:.2f}%"
-            sparkline = generate_sparkline(spark_prices)
+            sparkline = generate_braille_sparkline(spark_prices)
             report.append(f"**{symbol}**: ${price} ({change_str}) {sparkline}")
         else:
             report.append(f"**{symbol} Stock:** Error fetching price")
