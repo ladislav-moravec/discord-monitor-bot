@@ -130,8 +130,7 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    if message.channel.id == DEV_CHANNEL_ID:
-        print(f"DEBUG: [{message.author}] {message.content}")
+    print(f"DEBUG: Message from {message.author} in {message.channel.id}: {message.content}")
     await bot.process_commands(message)
 
 @tasks.loop(minutes=10) # Fixed interval for the loop itself, but it uses the config
@@ -176,7 +175,6 @@ async def monitor_loop():
 
 @bot.command()
 async def status(ctx):
-    if ctx.channel.id != DEV_CHANNEL_ID: return
     config = load_config()
     state = load_state()
     report = ["📊 **Current Status Report** 📊"]
@@ -198,14 +196,12 @@ async def status(ctx):
 
 @bot.command()
 async def check(ctx):
-    if ctx.channel.id != DEV_CHANNEL_ID: return
     await ctx.send("🔄 Manual check triggered...")
     await monitor_loop()
     await ctx.send("✅ Check completed.")
 
 @bot.command()
 async def add_stock(ctx, symbol: str, drop_threshold: float, target_high: float = 999999):
-    if ctx.channel.id != DEV_CHANNEL_ID: return
     config = load_config()
     symbol = symbol.upper()
     config["stocks"][symbol] = {"drop_threshold": drop_threshold, "target_high": target_high}
@@ -214,7 +210,6 @@ async def add_stock(ctx, symbol: str, drop_threshold: float, target_high: float 
 
 @bot.command()
 async def remove_stock(ctx, symbol: str):
-    if ctx.channel.id != DEV_CHANNEL_ID: return
     config = load_config()
     symbol = symbol.upper()
     if symbol in config["stocks"]:
@@ -226,7 +221,6 @@ async def remove_stock(ctx, symbol: str):
 
 @bot.command()
 async def dev(ctx, *, message: str):
-    if ctx.channel.id != DEV_CHANNEL_ID: return
     with open(DEV_REQUESTS_LOG, 'a') as f:
         f.write(f"[{time.ctime()}] FROM {ctx.author}: {message}\n")
     await ctx.send("📝 Request recorded. Jules will check this log during the next task update.")
