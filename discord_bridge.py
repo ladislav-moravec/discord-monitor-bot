@@ -32,7 +32,7 @@ def load_config():
             pass
 
     return {
-        "stocks": {"AAPL": {"drop_threshold": 10}},
+        "stocks": {},
         "steam_machine": {"url": "https://store.steampowered.com/hardware/steammachine", "monitor": False},
         "check_interval_minutes": 10
     }
