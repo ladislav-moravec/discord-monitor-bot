@@ -1,6 +1,10 @@
 import discord
 import asyncio
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 import time
 import json
 import requests
