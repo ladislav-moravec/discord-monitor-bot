@@ -87,20 +87,22 @@ def generate_braille_sparkline(prices):
     min_p, max_p = min(prices), max(prices)
     if max_p == min_p: max_p += 1
 
+    # 4 levels of vertical dots (1,2,3,7 for left and 4,5,6,8 for right)
+    # Each level adds a dot to create a solid bar from the baseline
     def get_dots_left(p):
         val = int(((p - min_p) / (max_p - min_p)) * 4)
-        if val <= 0: return [7] # Always show at least bottom dot
-        if val == 1: return [7]
-        if val == 2: return [7, 3]
-        if val == 3: return [7, 3, 2]
+        if val <= 0: return [7]
+        if val == 1: return [7, 3]
+        if val == 2: return [7, 3, 2]
+        if val == 3: return [7, 3, 2, 1]
         return [7, 3, 2, 1]
 
     def get_dots_right(p):
         val = int(((p - min_p) / (max_p - min_p)) * 4)
         if val <= 0: return [8]
-        if val == 1: return [8]
-        if val == 2: return [8, 6]
-        if val == 3: return [8, 6, 5]
+        if val == 1: return [8, 6]
+        if val == 2: return [8, 6, 5]
+        if val == 3: return [8, 6, 5, 4]
         return [8, 6, 5, 4]
 
     res = ""
@@ -129,9 +131,13 @@ def get_stock_info(symbol):
         res_1y = requests.get(url_1y, headers=headers, timeout=15).json()['chart']['result'][0]
         prices = res_1y['indicators']['quote'][0]['close']
         valid_prices = [p for p in prices if p is not None]
-        # Sample 1 year of data every 4th day. Braille characters show 2 data points
-        # each, so 63 points / 2 = ~32 characters long (approx 3cm).
-        spark_prices = valid_prices[::4]
+
+        # Sample 1 year of data with averaging to hold more information
+        # 252 trading days / 3 = 84 points. 84 / 2 (Braille density) = 42 characters.
+        spark_prices = []
+        for i in range(0, len(valid_prices), 3):
+            window = valid_prices[i:i+3]
+            spark_prices.append(sum(window) / len(window))
 
         return price, prev_close, spark_prices
     except:
