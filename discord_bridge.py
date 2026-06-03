@@ -180,13 +180,16 @@ async def monitor_loop():
     for symbol, cfg in config.get("stocks", {}).items():
         price, prev_close, spark_prices = get_stock_info(symbol)
         if price is not None and prev_close is not None:
-            drop_percent = ((prev_close - price) / prev_close) * 100
+            diff_percent = ((price - prev_close) / prev_close) * 100
             alert_msg = None
             alert_type = None
             
-            if drop_percent >= cfg.get("drop_threshold", 999):
-                alert_msg = f"📉 **{symbol} Stock Drop Alert!** 📉\nPrice: **${price}** (Down **{drop_percent:.2f}%** from prev close ${prev_close})"
+            if diff_percent <= -cfg.get("drop_threshold", 999):
+                alert_msg = f"📉 **{symbol} Stock Drop Alert!** 📉\nPrice: **${price}** (Down **{abs(diff_percent):.2f}%** from prev close ${prev_close})"
                 alert_type = "drop"
+            elif diff_percent >= cfg.get("raise_threshold", 999):
+                alert_msg = f"🚀 **{symbol} Stock Raise Alert!** 🚀\nPrice: **${price}** (Up **{diff_percent:.2f}%** from prev close ${prev_close})"
+                alert_type = "raise"
             elif price >= cfg.get("target_high", 999999):
                 alert_msg = f"🚀 **{symbol} Stock Target Reached!** 🚀\nPrice: **${price}**"
                 alert_type = "high"
