@@ -25,7 +25,7 @@ class TestMultiMonitor(unittest.TestCase):
         mock_res_1y = MagicMock()
         mock_res_1y.json.return_value = {
             'chart': {'result': [{
-                'indicators': {'quote': [{'close': [90.0, 95.0, 100.0]}]}
+                'indicators': {'quote': [{'close': [90.0, 95.0, 100.0, 105.0]}]}
             }]}
         }
         mock_get.side_effect = [mock_res_1d, mock_res_1y]
@@ -33,8 +33,8 @@ class TestMultiMonitor(unittest.TestCase):
         price, prev, spark = get_stock_info("GOOGL")
         self.assertEqual(price, 100.0)
         self.assertEqual(prev, 100.0)
-        # Average of [90.0, 95.0, 100.0] is 95.0
-        self.assertEqual(spark, [95.0])
+        # Average of [90, 95, 100, 105] is 97.5
+        self.assertEqual(spark, [97.5])
 
     @patch('discord_bridge.requests.get')
     def test_stock_info_aapl_drop(self, mock_get):
