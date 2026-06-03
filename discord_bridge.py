@@ -102,12 +102,14 @@ def get_stock_info(symbol):
         price = res_1d['meta']['regularMarketPrice']
         prev_close = res_1d['meta']['chartPreviousClose']
 
-        # Get 3mo data for sparkline
-        url_3mo = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=3mo&interval=1d"
-        res_3mo = requests.get(url_3mo, headers=headers, timeout=15).json()['chart']['result'][0]
-        prices = res_3mo['indicators']['quote'][0]['close']
+        # Get 1y data for high-density sparkline
+        url_1y = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=1y&interval=1d"
+        res_1y = requests.get(url_1y, headers=headers, timeout=15).json()['chart']['result'][0]
+        prices = res_1y['indicators']['quote'][0]['close']
         valid_prices = [p for p in prices if p is not None]
-        spark_prices = valid_prices[::5] if len(valid_prices) > 20 else valid_prices
+        # Use more data points for "steeper/denser" look as requested
+        # Taking every 2nd point for 1 year (~126 characters)
+        spark_prices = valid_prices[::2]
 
         return price, prev_close, spark_prices
     except:

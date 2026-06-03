@@ -22,18 +22,18 @@ class TestMultiMonitor(unittest.TestCase):
                 'meta': {'regularMarketPrice': 100.0, 'chartPreviousClose': 100.0}
             }]}
         }
-        mock_res_3mo = MagicMock()
-        mock_res_3mo.json.return_value = {
+        mock_res_1y = MagicMock()
+        mock_res_1y.json.return_value = {
             'chart': {'result': [{
                 'indicators': {'quote': [{'close': [90.0, 95.0, 100.0]}]}
             }]}
         }
-        mock_get.side_effect = [mock_res_1d, mock_res_3mo]
+        mock_get.side_effect = [mock_res_1d, mock_res_1y]
 
         price, prev, spark = get_stock_info("GOOGL")
         self.assertEqual(price, 100.0)
         self.assertEqual(prev, 100.0)
-        self.assertEqual(spark, [90.0, 95.0, 100.0])
+        self.assertEqual(spark, [90.0, 100.0]) # [::2] of [90, 95, 100] is [90, 100]
 
     @patch('discord_bridge.requests.get')
     def test_stock_info_aapl_drop(self, mock_get):
@@ -44,13 +44,13 @@ class TestMultiMonitor(unittest.TestCase):
                 'meta': {'regularMarketPrice': 135.0, 'chartPreviousClose': 150.0}
             }]}
         }
-        mock_res_3mo = MagicMock()
-        mock_res_3mo.json.return_value = {
+        mock_res_1y = MagicMock()
+        mock_res_1y.json.return_value = {
             'chart': {'result': [{
                 'indicators': {'quote': [{'close': [150.0, 140.0, 135.0]}]}
             }]}
         }
-        mock_get.side_effect = [mock_res_1d, mock_res_3mo]
+        mock_get.side_effect = [mock_res_1d, mock_res_1y]
 
         price, prev, spark = get_stock_info("AAPL")
         self.assertEqual(price, 135.0)
