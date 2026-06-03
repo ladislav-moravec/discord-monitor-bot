@@ -16,14 +16,20 @@ class TestMultiMonitor(unittest.TestCase):
 
     @patch('discord_bridge.requests.get')
     def test_stock_info_normal(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
+        mock_res_1d = MagicMock()
+        mock_res_1d.json.return_value = {
             'chart': {'result': [{
-                'meta': {'regularMarketPrice': 100.0, 'previousClose': 100.0},
+                'meta': {'regularMarketPrice': 100.0, 'chartPreviousClose': 100.0}
+            }]}
+        }
+        mock_res_3mo = MagicMock()
+        mock_res_3mo.json.return_value = {
+            'chart': {'result': [{
                 'indicators': {'quote': [{'close': [90.0, 95.0, 100.0]}]}
             }]}
         }
-        mock_get.return_value = mock_response
+        mock_get.side_effect = [mock_res_1d, mock_res_3mo]
+
         price, prev, spark = get_stock_info("GOOGL")
         self.assertEqual(price, 100.0)
         self.assertEqual(prev, 100.0)
@@ -32,14 +38,20 @@ class TestMultiMonitor(unittest.TestCase):
     @patch('discord_bridge.requests.get')
     def test_stock_info_aapl_drop(self, mock_get):
         # 150 to 135 is a 10% drop
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
+        mock_res_1d = MagicMock()
+        mock_res_1d.json.return_value = {
             'chart': {'result': [{
-                'meta': {'regularMarketPrice': 135.0, 'previousClose': 150.0},
+                'meta': {'regularMarketPrice': 135.0, 'chartPreviousClose': 150.0}
+            }]}
+        }
+        mock_res_3mo = MagicMock()
+        mock_res_3mo.json.return_value = {
+            'chart': {'result': [{
                 'indicators': {'quote': [{'close': [150.0, 140.0, 135.0]}]}
             }]}
         }
-        mock_get.return_value = mock_response
+        mock_get.side_effect = [mock_res_1d, mock_res_3mo]
+
         price, prev, spark = get_stock_info("AAPL")
         self.assertEqual(price, 135.0)
         self.assertEqual(prev, 150.0)

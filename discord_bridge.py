@@ -95,19 +95,21 @@ def generate_sparkline(prices):
 
 def get_stock_info(symbol):
     headers = {'User-Agent': 'Mozilla/5.0'}
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=3mo&interval=1d"
     try:
-        response = requests.get(url, headers=headers, timeout=15)
-        data = response.json()
-        result = data['chart']['result'][0]
-        meta = result['meta']
-        prices = result['indicators']['quote'][0]['close']
-        # Filter out None values
+        # Get 1d data for accurate previous close
+        url_1d = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=1d&interval=1d"
+        res_1d = requests.get(url_1d, headers=headers, timeout=15).json()['chart']['result'][0]
+        price = res_1d['meta']['regularMarketPrice']
+        prev_close = res_1d['meta']['chartPreviousClose']
+
+        # Get 3mo data for sparkline
+        url_3mo = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=3mo&interval=1d"
+        res_3mo = requests.get(url_3mo, headers=headers, timeout=15).json()['chart']['result'][0]
+        prices = res_3mo['indicators']['quote'][0]['close']
         valid_prices = [p for p in prices if p is not None]
-        # Return current, previous close, and historical prices for sparkline
-        # Taking every 5th price to keep sparkline short for Discord
         spark_prices = valid_prices[::5] if len(valid_prices) > 20 else valid_prices
-        return meta['regularMarketPrice'], meta['previousClose'], spark_prices
+
+        return price, prev_close, spark_prices
     except:
         return None, None, None
 
