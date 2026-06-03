@@ -107,9 +107,9 @@ def get_stock_info(symbol):
         res_1y = requests.get(url_1y, headers=headers, timeout=15).json()['chart']['result'][0]
         prices = res_1y['indicators']['quote'][0]['close']
         valid_prices = [p for p in prices if p is not None]
-        # Use more data points for "steeper/denser" look as requested
-        # Taking every 2nd point for 1 year (~126 characters)
-        spark_prices = valid_prices[::2]
+        # Sample 1 year of data to be ~32 characters long (approx 3cm)
+        # 252 trading days / 8 = 31.5 points
+        spark_prices = valid_prices[::8]
 
         return price, prev_close, spark_prices
     except:

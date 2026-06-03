@@ -33,7 +33,7 @@ class TestMultiMonitor(unittest.TestCase):
         price, prev, spark = get_stock_info("GOOGL")
         self.assertEqual(price, 100.0)
         self.assertEqual(prev, 100.0)
-        self.assertEqual(spark, [90.0, 100.0]) # [::2] of [90, 95, 100] is [90, 100]
+        self.assertEqual(spark, [90.0]) # [::8] of [90, 95, 100] is [90]
 
     @patch('discord_bridge.requests.get')
     def test_stock_info_aapl_drop(self, mock_get):
