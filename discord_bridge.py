@@ -13,6 +13,7 @@ DEV_CHANNEL_ID = 1511681696762957924
 NOTIFICATION_CHANNEL_ID = 1511644508608270397 
 STATE_FILE = "monitor_state.json"
 CONFIG_FILE = "config.json"
+CONFIG_TEMPLATE = "config.template.json"
 DEV_REQUESTS_LOG = "dev_requests.log"
 
 def load_config():
@@ -22,9 +23,17 @@ def load_config():
                 return json.load(f)
         except:
             pass
+
+    if os.path.exists(CONFIG_TEMPLATE):
+        try:
+            with open(CONFIG_TEMPLATE, 'r') as f:
+                return json.load(f)
+        except:
+            pass
+
     return {
-        "stocks": {"SOFI": {"target_high": 19, "drop_threshold": 10}},
-        "steam_machine": {"url": "https://store.steampowered.com/hardware/steammachine", "monitor": true},
+        "stocks": {},
+        "steam_machine": {"url": "https://store.steampowered.com/hardware/steammachine", "monitor": False},
         "check_interval_minutes": 10
     }
 
