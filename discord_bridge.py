@@ -1,6 +1,10 @@
 import discord
 import asyncio
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 import time
 import json
 import requests
@@ -78,16 +82,64 @@ def check_steam_availability(url):
     except:
         return False
 
-def get_stock_price(symbol):
+def generate_braille_sparkline(prices):
+    if not prices or len(prices) < 2: return ""
+    min_p, max_p = min(prices), max(prices)
+    if max_p == min_p: max_p += 1
+
+    # 4 levels of vertical dots (1,2,3,7 for left and 4,5,6,8 for right)
+    # Solid bar style: fill from bottom to eliminate black spaces
+    def get_dots_left(p):
+        val = int(((p - min_p) / (max_p - min_p)) * 3)
+        if val == 0: return [7]
+        if val == 1: return [7, 3]
+        if val == 2: return [7, 3, 2]
+        return [7, 3, 2, 1]
+
+    def get_dots_right(p):
+        val = int(((p - min_p) / (max_p - min_p)) * 3)
+        if val == 0: return [8]
+        if val == 1: return [8, 6]
+        if val == 2: return [8, 6, 5]
+        return [8, 6, 5, 4]
+
+    res = ""
+    for i in range(0, len(prices), 2):
+        dots = get_dots_left(prices[i])
+        if i + 1 < len(prices):
+            dots += get_dots_right(prices[i+1])
+        base = 0x2800
+        char_code = base
+        for dot in dots:
+            char_code += (1 << (dot - 1))
+        res += chr(char_code)
+    return res
+
+def get_stock_info(symbol):
     headers = {'User-Agent': 'Mozilla/5.0'}
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
     try:
-        response = requests.get(url, headers=headers, timeout=15)
-        data = response.json()
-        meta = data['chart']['result'][0]['meta']
-        return meta['regularMarketPrice'], meta['previousClose']
+        # Get 1d data for accurate previous close
+        url_1d = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=1d&interval=1d"
+        res_1d = requests.get(url_1d, headers=headers, timeout=15).json()['chart']['result'][0]
+        price = res_1d['meta']['regularMarketPrice']
+        prev_close = res_1d['meta']['chartPreviousClose']
+
+        # Get 1y data for high-density sparkline
+        url_1y = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=1y&interval=1d"
+        res_1y = requests.get(url_1y, headers=headers, timeout=15).json()['chart']['result'][0]
+        prices = res_1y['indicators']['quote'][0]['close']
+        valid_prices = [p for p in prices if p is not None]
+
+        # Sample 1 year of data using 4-day averaging to hold more information.
+        # 252 days / 4 = 63 points. Braille shows 2 points per char = ~32 chars (3cm).
+        spark_prices = []
+        for i in range(0, len(valid_prices), 4):
+            window = valid_prices[i:i+4]
+            spark_prices.append(sum(window) / len(window))
+
+        return price, prev_close, spark_prices
     except:
-        return None, None
+        return None, None, None
 
 # Discord Bot
 intents = discord.Intents.default()
@@ -106,8 +158,7 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    if message.channel.id == DEV_CHANNEL_ID:
-        print(f"DEBUG: [{message.author}] {message.content}")
+    print(f"DEBUG: Message from {message.author} in {message.channel.id}: {message.content}")
     await bot.process_commands(message)
 
 @tasks.loop(minutes=10) # Fixed interval for the loop itself, but it uses the config
@@ -127,15 +178,18 @@ async def monitor_loop():
     
     # Stocks
     for symbol, cfg in config.get("stocks", {}).items():
-        price, prev_close = get_stock_price(symbol)
+        price, prev_close, spark_prices = get_stock_info(symbol)
         if price is not None and prev_close is not None:
-            drop_percent = ((prev_close - price) / prev_close) * 100
+            diff_percent = ((price - prev_close) / prev_close) * 100
             alert_msg = None
             alert_type = None
             
-            if drop_percent >= cfg.get("drop_threshold", 999):
-                alert_msg = f"📉 **{symbol} Stock Drop Alert!** 📉\nPrice: **${price}** (Down **{drop_percent:.2f}%** from prev close ${prev_close})"
+            if diff_percent <= -cfg.get("drop_threshold", 999):
+                alert_msg = f"📉 **{symbol} Stock Drop Alert!** 📉\nPrice: **${price}** (Down **{abs(diff_percent):.2f}%** from prev close ${prev_close})"
                 alert_type = "drop"
+            elif diff_percent >= cfg.get("raise_threshold", 999):
+                alert_msg = f"🚀 **{symbol} Stock Raise Alert!** 🚀\nPrice: **${price}** (Up **{diff_percent:.2f}%** from prev close ${prev_close})"
+                alert_type = "raise"
             elif price >= cfg.get("target_high", 999999):
                 alert_msg = f"🚀 **{symbol} Stock Target Reached!** 🚀\nPrice: **${price}**"
                 alert_type = "high"
@@ -152,7 +206,6 @@ async def monitor_loop():
 
 @bot.command()
 async def status(ctx):
-    if ctx.channel.id != DEV_CHANNEL_ID: return
     config = load_config()
     state = load_state()
     report = ["📊 **Current Status Report** 📊"]
@@ -162,23 +215,24 @@ async def status(ctx):
         report.append(f"**Steam Machine:** {'Available 🟢' if state.get('steam_available') else 'Not available 🔴'}")
     
     for symbol in config.get("stocks", {}):
-        price, prev_close = get_stock_price(symbol)
+        price, prev_close, spark_prices = get_stock_info(symbol)
         if price is not None:
-            report.append(f"**{symbol} Stock:** ${price} (Prev: ${prev_close})")
+            pct_change = ((price - prev_close) / prev_close) * 100
+            change_str = f"{'+' if pct_change >= 0 else ''}{pct_change:.2f}%"
+            sparkline = generate_braille_sparkline(spark_prices)
+            report.append(f"**{symbol}**: ${price} ({change_str}) {sparkline}")
         else:
             report.append(f"**{symbol} Stock:** Error fetching price")
     await ctx.send("\n".join(report))
 
 @bot.command()
 async def check(ctx):
-    if ctx.channel.id != DEV_CHANNEL_ID: return
     await ctx.send("🔄 Manual check triggered...")
     await monitor_loop()
     await ctx.send("✅ Check completed.")
 
 @bot.command()
 async def add_stock(ctx, symbol: str, drop_threshold: float, target_high: float = 999999):
-    if ctx.channel.id != DEV_CHANNEL_ID: return
     config = load_config()
     symbol = symbol.upper()
     config["stocks"][symbol] = {"drop_threshold": drop_threshold, "target_high": target_high}
@@ -187,7 +241,6 @@ async def add_stock(ctx, symbol: str, drop_threshold: float, target_high: float 
 
 @bot.command()
 async def remove_stock(ctx, symbol: str):
-    if ctx.channel.id != DEV_CHANNEL_ID: return
     config = load_config()
     symbol = symbol.upper()
     if symbol in config["stocks"]:
@@ -199,7 +252,6 @@ async def remove_stock(ctx, symbol: str):
 
 @bot.command()
 async def dev(ctx, *, message: str):
-    if ctx.channel.id != DEV_CHANNEL_ID: return
     with open(DEV_REQUESTS_LOG, 'a') as f:
         f.write(f"[{time.ctime()}] FROM {ctx.author}: {message}\n")
     await ctx.send("📝 Request recorded. Jules will check this log during the next task update.")
