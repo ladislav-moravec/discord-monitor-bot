@@ -1,0 +1,10 @@
+{
+    "stocks": {
+        "AAPL": {"drop_threshold": 10}
+    },
+    "steam_machine": {
+        "url": "https://store.steampowered.com/hardware/steammachine",
+        "monitor": false
+    },
+    "check_interval_minutes": 10
+}

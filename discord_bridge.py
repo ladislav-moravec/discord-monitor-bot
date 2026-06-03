@@ -23,8 +23,11 @@ def load_config():
         except:
             pass
     return {
-        "stocks": {"SOFI": {"target_high": 19, "drop_threshold": 10}},
-        "steam_machine": {"url": "https://store.steampowered.com/hardware/steammachine", "monitor": true},
+        "stocks": {
+            "AAPL": {"drop_threshold": 10},
+            "SOFI": {"target_high": 19, "drop_threshold": 10}
+        },
+        "steam_machine": {"url": "https://store.steampowered.com/hardware/steammachine", "monitor": True},
         "check_interval_minutes": 10
     }
 
