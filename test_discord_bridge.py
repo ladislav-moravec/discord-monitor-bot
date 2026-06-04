@@ -117,5 +117,12 @@ class TestMultiMonitor(unittest.TestCase):
         mock_channel.send.assert_called()
         self.assertTrue("Stock Raise Alert" in mock_channel.send.call_args[0][0])
 
+    def test_ping_command(self):
+        mock_ctx = MagicMock()
+        mock_ctx.send = AsyncMock()
+        from discord_bridge import ping
+        asyncio.run(ping(mock_ctx))
+        mock_ctx.send.assert_called_with("🏓 **Pong!** (Bot is online and responding)")
+
 if __name__ == '__main__':
     unittest.main()

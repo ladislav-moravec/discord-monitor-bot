@@ -207,6 +207,10 @@ async def monitor_loop():
     save_state(state)
 
 @bot.command()
+async def ping(ctx):
+    await ctx.send(f"🏓 **Pong!** (Bot is online and responding)")
+
+@bot.command()
 async def status(ctx):
     config = load_config()
     state = load_state()
@@ -225,6 +229,8 @@ async def status(ctx):
             report.append(f"**{symbol}**: ${price} ({change_str}) {sparkline}")
         else:
             report.append(f"**{symbol} Stock:** Error fetching price")
+
+    report.append(f"\n*Last checked: {time.ctime()}*")
     await ctx.send("\n".join(report))
 
 @bot.command()
