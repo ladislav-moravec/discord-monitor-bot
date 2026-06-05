@@ -91,7 +91,32 @@ class TestMultiMonitor(unittest.TestCase):
         asyncio.run(monitor_loop())
 
         mock_channel.send.assert_called()
-        self.assertTrue("Steam Machine is AVAILABLE" in mock_channel.send.call_args[0][0])
+        self.assertTrue("Steam Machine is now AVAILABLE" in mock_channel.send.call_args[0][0])
+
+    @patch('discord_bridge.check_steam_availability')
+    @patch('discord_bridge.bot.get_channel')
+    @patch('discord_bridge.load_config')
+    @patch('discord_bridge.load_state')
+    @patch('discord_bridge.save_state')
+    @patch('discord_bridge.get_stock_info')
+    def test_monitor_loop_steam_unavailable(self, mock_stock, mock_save, mock_load_state, mock_load_cfg, mock_get_channel, mock_steam):
+        mock_load_cfg.return_value = {
+            "steam_machine": {"url": "http://steam.com", "monitor": True},
+            "stocks": {}
+        }
+        # Was available, now it is not
+        mock_load_state.return_value = {"steam_available": True, "stock_alerts": {}}
+        mock_steam.return_value = False
+
+        mock_channel = MagicMock()
+        mock_channel.send = AsyncMock()
+        mock_get_channel.return_value = mock_channel
+
+        from discord_bridge import monitor_loop
+        asyncio.run(monitor_loop())
+
+        mock_channel.send.assert_called()
+        self.assertTrue("Steam Machine is now UNAVAILABLE" in mock_channel.send.call_args[0][0])
 
     @patch('discord_bridge.bot.get_channel')
     @patch('discord_bridge.load_config')

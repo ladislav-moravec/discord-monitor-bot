@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import time
 import json
+import logging
 import requests
 from bs4 import BeautifulSoup
 from discord.ext import tasks, commands
@@ -60,26 +61,42 @@ def save_state(state):
 
 # Monitoring Functions
 def check_steam_availability(url):
+    """
+    Checks if the Steam Machine (or other hardware) is available for purchase.
+    Excludes Steam Deck and Steam Controller related links.
+    """
     headers = {'User-Agent': 'Mozilla/5.0'}
     try:
         session = requests.Session()
-        session.get("https://store.steampowered.com/", headers=headers)
+        # Visit home page first to establish session/cookies if needed
+        session.get("https://store.steampowered.com/", headers=headers, timeout=10)
         response = session.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+
         soup = BeautifulSoup(response.text, 'html.parser')
         found = False
+
+        # Check links
         for a in soup.find_all('a'):
             text = a.get_text().lower()
             href = a.get('href', '').lower()
             if any(term in text for term in ['buy now', 'add to cart', 'pre-order']):
+                # Explicitly exclude other hardware that might be linked on the page
                 if 'steamdeck' not in href and 'steamcontroller' not in href:
-                    found = True; break
+                    found = True
+                    break
+
+        # Check buttons and other interactive elements
         if not found:
             for btn in soup.find_all(['button', 'div', 'span']):
                 text = btn.get_text().strip().lower()
                 if text in ['add to cart', 'pre-order now', 'buy now']:
-                    found = True; break
+                    found = True
+                    break
+
         return found
-    except:
+    except Exception as e:
+        logging.error(f"Error checking Steam availability for {url}: {e}")
         return False
 
 def generate_braille_sparkline(prices):
@@ -170,12 +187,20 @@ async def monitor_loop():
     
     # Steam
     steam_cfg = config.get("steam_machine", {})
-    if steam_cfg.get("monitor") and not state.get("steam_available", False):
-        if check_steam_availability(steam_cfg.get("url")):
+    if steam_cfg.get("monitor"):
+        is_available = check_steam_availability(steam_cfg.get("url"))
+        was_available = state.get("steam_available", False)
+        if is_available != was_available:
+            if is_available:
+                msg = f"🚨 **Steam Machine is now AVAILABLE!** 🚨\nBuy it here: {steam_cfg.get('url')}"
+            else:
+                msg = "ℹ️ **Steam Machine is now UNAVAILABLE.**"
             if notif_channel:
-                await notif_channel.send(f"🚨 **Steam Machine is AVAILABLE!** 🚨\nBuy it here: {steam_cfg.get('url')}")
-            state["steam_available"] = True
-    
+                await notif_channel.send(msg)
+            state["steam_available"] = is_available
+
+    state["last_checked"] = time.ctime()
+
     # Stocks
     for symbol, cfg in config.get("stocks", {}).items():
         price, prev_close, spark_prices = get_stock_info(symbol)
@@ -223,6 +248,10 @@ async def status(ctx):
             report.append(f"**{symbol}**: ${price} ({change_str}) {sparkline}")
         else:
             report.append(f"**{symbol} Stock:** Error fetching price")
+
+    if state.get("last_checked"):
+        report.append(f"\n_Last checked: {state['last_checked']}_")
+
     await ctx.send("\n".join(report))
 
 @bot.command()
